@@ -72,7 +72,7 @@ class Nova_Google_Sheets_Integration {
 		if ( isset( $_POST['nova_google_sheets_spreadsheet_id'] ) ) {
 			update_option( 'nova_google_sheets_spreadsheet_id', sanitize_text_field( $_POST['nova_google_sheets_spreadsheet_id'] ) );
 		}
-
+        $option = get_option( 'nova_google_sheets_spreadsheet_id' );
 		// Update other settings if form is submitted
 		if ( isset( $_POST['update_sheet'] ) ) {
 			$updated = $this->client->updateSheet();
@@ -91,7 +91,7 @@ class Nova_Google_Sheets_Integration {
                 <input type="submit" name="update_sheet" value="Update Sheet" class="button button-primary">
               </form></div>';
 
-		echo '<p><a href="https://docs.google.com/spreadsheets/d/1YVQ1JurS--wlh2CKxj1Oihbt1dE7N4OSLYixsWmTh_0/edit#gid=0" target="_blank" class="button">View Google Sheet</a></p>';
+		echo '<p><a href="https://docs.google.com/spreadsheets/d/'.$option.'/edit#gid=0" target="_blank" class="button">View Google Sheet</a></p>';
 	}
 
 	private function handle_file_upload( $file ) {
