@@ -54,6 +54,7 @@ class Nova_Partner_Data {
 				'Business Type'     => get_field( 'business_type', 'user_' . $user->ID ),
 				'Quotes Submitted (last 4 weeks)' => self::is_user_active( $user->ID ),
 				'Orders Submitted (last 4 weeks)' => self::get_orders_before( $user->ID ),
+                'Company Emails' => get_user_meta( $user->ID ,'employee_emails',true),
 			);
 		}
 

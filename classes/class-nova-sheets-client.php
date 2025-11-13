@@ -111,6 +111,7 @@ class Nova_Sheets_Client {
 					get_field( 'business_type', 'user_' . $user_id ),
 					self::is_user_active( $user_id ),
 					self::get_orders_before( $user_id ),
+                    get_user_meta($user_id,'employee_emails',true) ?: 'NONE',
 				),
 			);
 
@@ -201,11 +202,11 @@ class Nova_Sheets_Client {
 			'Business Type'     => get_field( 'business_type', 'user_' . $user->ID ),
 			'Quotes Submitted (last 4 weeks)' => self::is_user_active( $user_id ),
 			'Orders Submitted (last 4 weeks)' => self::get_orders_before( $user_id ),
+			'Company Emails' => get_user_meta($user_id,'employee_emails',true),
 		);
 
 		$body   = new Google\Service\Sheets\ValueRange( array( 'values' => $values ) );
 		$params = array( 'valueInputOption' => 'RAW' );
-
 		try {
 			/** append to sheet */
 			$result = $service->spreadsheets_values->append( $spreadsheetId, 'Partners (Master Copy)!A1', $body, $params );
