@@ -155,6 +155,7 @@ class Nova_Sheets_Client {
 			return;
 		}
 
+        $novaPartnerData = new Nova_Partner_Data();
 		$values = array();
 
 		$user = get_user_by( 'id', $user_id );
@@ -202,7 +203,7 @@ class Nova_Sheets_Client {
 			'Business Type'     => get_field( 'business_type', 'user_' . $user->ID ),
 			'Quotes Submitted (last 4 weeks)' => self::is_user_active( $user_id ),
 			'Orders Submitted (last 4 weeks)' => self::get_orders_before( $user_id ),
-			'Company Emails' => get_user_meta($user_id,'employee_emails',true),
+			'Company Emails' => $novaPartnerData->formatEmployeeEmails( get_user_meta($user_id,'employee_emails',true) ),
 		);
 
 		$body   = new Google\Service\Sheets\ValueRange( array( 'values' => $values ) );

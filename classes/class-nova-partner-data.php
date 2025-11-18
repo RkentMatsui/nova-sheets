@@ -8,7 +8,7 @@ class Nova_Partner_Data {
 		);
 		$users   = get_users( $args );
 		$results = array();
-
+        $novaPartnerDataObj = new Nova_Partner_Data();
 		$keywords = array( 'test', 'demo' );
 
 		foreach ( $users as $user ) {
@@ -54,7 +54,7 @@ class Nova_Partner_Data {
 				'Business Type'     => get_field( 'business_type', 'user_' . $user->ID ),
 				'Quotes Submitted (last 4 weeks)' => self::is_user_active( $user->ID ),
 				'Orders Submitted (last 4 weeks)' => self::get_orders_before( $user->ID ),
-                'Company Emails' => get_user_meta( $user->ID ,'employee_emails',true),
+                'Company Emails' => $novaPartnerDataObj->formatEmployeeEmails(get_user_meta( $user->ID ,'employee_emails',true)),
 			);
 		}
 
@@ -130,4 +130,12 @@ class Nova_Partner_Data {
 		}
 		return false;
 	}
+
+    public static function formatEmployeeEmails($emails): string {
+        //clean the string of newlines so different formats can be used
+        $no_newlines =  preg_replace('/\s+/', '', trim($emails));
+
+        //add new lineseperator after each email
+        return implode(",\n", array_filter(explode(',', $no_newlines)));
+    }
 }
