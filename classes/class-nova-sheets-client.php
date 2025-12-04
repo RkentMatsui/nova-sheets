@@ -2,9 +2,11 @@
 class Nova_Sheets_Client {
 
 	private $spreadsheetID;
+    private $employeeSpreadsheetID;
 
 	public function __construct() {
 		$this->spreadsheetID = get_option( 'nova_google_sheets_spreadsheet_id' );
+		$this->employeeSpreadsheetID = get_option( 'nova_google_sheets_employee_spreadsheet_id' );
 		add_action( 'set_user_role', array( $this, 'update_row' ), 99 );
 		add_action( 'profile_update', array( $this, 'update_row' ), 99 );
 		/** if woocommerce order is placed, update the row */
@@ -28,15 +30,18 @@ class Nova_Sheets_Client {
 		return $client;
 	}
 
-	public function updateSheet() {
+	public function updateSheet($type = '') {
 		try {
 			$client        = $this->getClient();
 			$service       = new Google\Service\Sheets( $client );
-			$spreadsheetId = $this->spreadsheetID;
+            $spreadsheetId = $this->spreadsheetID;
+            if($type == 'employee'){
+                $spreadsheetId = $this->employeeSpreadsheetID;
+            }
 			$range         = 'Partners (Master Copy)!A1:Z';
 
 			$this->clearSheet( $service, $spreadsheetId, $range );
-			$this->populateSheet( $service, $spreadsheetId );
+			$this->populateSheet( $service, $spreadsheetId, $type );
 
 			return true;
 		} catch ( Exception $e ) {
@@ -203,7 +208,7 @@ class Nova_Sheets_Client {
 			'Business Type'     => get_field( 'business_type', 'user_' . $user->ID ),
 			'Quotes Submitted (last 4 weeks)' => self::is_user_active( $user_id ),
 			'Orders Submitted (last 4 weeks)' => self::get_orders_before( $user_id ),
-			'Company Emails' => $novaPartnerData->formatEmployeeEmails( get_user_meta($user_id,'employee_emails',true) ),
+			'Company Emails'    => get_user_meta($user_id,'employee_emails',true),
 		);
 
 		$body   = new Google\Service\Sheets\ValueRange( array( 'values' => $values ) );
@@ -218,8 +223,12 @@ class Nova_Sheets_Client {
 		}
 	}
 
-	private function populateSheet( $service, $spreadsheetId ) {
-		$partners = Nova_Partner_Data::get_all_partners();
+	private function populateSheet( $service, $spreadsheetId, $type = '' ) {
+        if($type == 'employee'){
+            $partners = Nova_Partner_Data::get_all_partners_company_emails();
+        }else{
+            $partners = Nova_Partner_Data::get_all_partners();
+        }
 		if ( empty( $partners ) ) {
 			echo 'No partners data available to update.<br>\n';
 			return;
