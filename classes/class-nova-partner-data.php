@@ -116,9 +116,9 @@ class Nova_Partner_Data {
                     'Company Emails'    => '',
                 );
             }else{
-                foreach ($employee_emails_arr as $email) {
-                    $employee_data =  array_map('trim', explode(' ',$email));
-                    $employee_email = $employee_data[count($employee_data) - 1];//get the last one
+                foreach ($employee_emails_arr as $employee_email) {
+                    $employee_data =  array_map('trim', explode(' ',$employee_email));
+                    $employee_email_val = $employee_data[count($employee_data) - 1];//get the last one
                     $employee_name = implode(" ",array_slice($employee_data,0,count($employee_data) - 1));
                     $results[] = array(
                         'Business ID'       => get_field( 'business_id', 'user_' . $user->ID ),
@@ -136,7 +136,7 @@ class Nova_Partner_Data {
                         'Registration Date' =>  (new DateTime($user->user_registered))->format('Y-m-d'),
                         'Business Type'     => get_field( 'business_type', 'user_' . $user->ID ),
                         'Company Name'      => $employee_name,
-                        'Company Emails'    => $employee_email,
+                        'Company Emails'    => $employee_email_val,
                     );
                 }
 
