@@ -4,6 +4,7 @@ class Nova_Google_Sheets_Integration {
 
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_plugin_page' ) );
+        add_action( 'admin_menu', array( $this, 'add_plugin_submenu_employee_emails' ) );
 		add_action( 'admin_init', array( $this, 'register_plugin_settings' ) );
 		$this->client = new Nova_Sheets_Client();
 	}
@@ -35,7 +36,25 @@ class Nova_Google_Sheets_Integration {
 			'google_sheets_integration',
 			'google_sheets_integration_section'
 		);
-	}
+
+        //Employee Emails Settings
+        register_setting( 'google_sheets_integration_employee', 'nova_google_sheets_employee_spreadsheet_id' ); // Register a new setting for Spreadsheet ID
+
+        add_settings_section(
+            'google_sheets_integration_employee_section',
+            'Google Sheets Employee Emails Settings',
+            null,
+            'employee_emails'
+        );
+
+        add_settings_field(
+            'google_sheets_employee_spreadsheet_id_field',
+            'Spreadsheet ID',
+            array( $this, 'google_sheets_employee_spreadsheet_id_field_callback' ),
+            'employee_emails',
+            'google_sheets_integration_employee_section'
+        );
+    }
 
 	public function google_sheets_credentials_field_callback() {
 		$option = get_option( 'nova_google_sheets_credentials' );
@@ -48,6 +67,11 @@ class Nova_Google_Sheets_Integration {
 	public function google_sheets_spreadsheet_id_field_callback() {
 		$option = get_option( 'nova_google_sheets_spreadsheet_id' );
 		echo '<input type="text" name="nova_google_sheets_spreadsheet_id" value="' . esc_attr( $option ) . '" />';
+	}
+
+	public function google_sheets_employee_spreadsheet_id_field_callback() {
+		$option = get_option( 'nova_google_sheets_employee_spreadsheet_id' );
+		echo '<input type="text" name="nova_google_sheets_employee_spreadsheet_id" value="' . esc_attr( $option ) . '" />';
 	}
 
 
@@ -72,7 +96,7 @@ class Nova_Google_Sheets_Integration {
 		if ( isset( $_POST['nova_google_sheets_spreadsheet_id'] ) ) {
 			update_option( 'nova_google_sheets_spreadsheet_id', sanitize_text_field( $_POST['nova_google_sheets_spreadsheet_id'] ) );
 		}
-
+        $option = get_option( 'nova_google_sheets_spreadsheet_id' );
 		// Update other settings if form is submitted
 		if ( isset( $_POST['update_sheet'] ) ) {
 			$updated = $this->client->updateSheet();
@@ -91,7 +115,7 @@ class Nova_Google_Sheets_Integration {
                 <input type="submit" name="update_sheet" value="Update Sheet" class="button button-primary">
               </form></div>';
 
-		echo '<p><a href="https://docs.google.com/spreadsheets/d/1YVQ1JurS--wlh2CKxj1Oihbt1dE7N4OSLYixsWmTh_0/edit#gid=0" target="_blank" class="button">View Google Sheet</a></p>';
+		echo '<p><a href="https://docs.google.com/spreadsheets/d/'.$option.'/edit#gid=0" target="_blank" class="button">View Google Sheet</a></p>';
 	}
 
 	private function handle_file_upload( $file ) {
@@ -105,4 +129,45 @@ class Nova_Google_Sheets_Integration {
 			}
 		}
 	}
+
+    public function add_plugin_submenu_employee_emails() {
+        add_submenu_page(
+            'google_sheets_integration',
+            'Employee Emails',
+            'Employee Emails',
+            'manage_options',
+            'employee_emails',
+            array( $this, 'employee_emails_page' )
+        );
+    }
+
+    public function employee_emails_page() {
+        echo '<h1>Employee Emails</h1>';
+
+        if ( isset( $_POST['nova_google_sheets_employee_spreadsheet_id'] ) ) {
+            update_option( 'nova_google_sheets_employee_spreadsheet_id', sanitize_text_field( $_POST['nova_google_sheets_employee_spreadsheet_id'] ) );
+        }
+        $option = get_option( 'nova_google_sheets_employee_spreadsheet_id' );
+
+        // Update other settings if form is submitted
+        if ( isset( $_POST['update_sheet'] ) ) {
+            $updated = $this->client->updateSheet('employee');
+            if ( $updated ) {
+                echo '<div class="updated"><p>Sheet updated.</p></div>';
+            }
+        }
+
+        echo '<form method="post" enctype="multipart/form-data">';
+        settings_fields( 'google_sheets_integration_employee' );
+        do_settings_sections( 'employee_emails' );
+        submit_button( 'Save Settings' );
+        echo '</form></div>';
+
+        echo '<form method="post">
+                <input type="submit" name="update_sheet" value="Update Sheet" class="button button-primary">
+              </form></div>';
+
+        echo '<p><a href="https://docs.google.com/spreadsheets/d/'.$option.'/edit#gid=0" target="_blank" class="button">View Google Sheet</a></p>';
+
+    }
 }
