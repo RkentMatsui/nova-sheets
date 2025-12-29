@@ -1,4 +1,14 @@
 <?php
+/**
+ * Nova Sheets Client
+ *
+ * Handles Google Sheets API client initialization and sheet operations.
+ * Manages syncing partner and employee data to Google Sheets, including
+ * inserting, updating, clearing, and formatting sheet data.
+ *
+ * @package Nova_Sheets
+ * @since   1.0.0
+ */
 class Nova_Sheets_Client {
 
 	private $spreadsheetID;
@@ -111,11 +121,11 @@ class Nova_Sheets_Client {
 					get_user_meta( $user_id, 'billing_state', true ) ?: 'NONE',
 					get_user_meta( $user_id, 'billing_country', true ) ?: 'NONE',
 					( new DateTime( $user->user_registered ) )->format( 'Y-m-d' ),
-					self::user_orders_count( $user_id ),
-					self::user_quotes_count( $user_id ),
+					Nova_Sheets_Utils::user_orders_count( $user_id ),
+					Nova_Sheets_Utils::user_quotes_count( $user_id ),
 					get_field( 'business_type', 'user_' . $user_id ),
-					self::is_user_active( $user_id ),
-					self::get_orders_before( $user_id ),
+					Nova_Sheets_Utils::is_user_active( $user_id ),
+					Nova_Sheets_Utils::get_orders_before( $user_id ),
                     get_user_meta($user_id,'employee_emails',true) ?: 'NONE',
 				),
 			);
@@ -172,9 +182,9 @@ class Nova_Sheets_Client {
 		$keywords = array( 'test', 'demo' );
 
 			// Skip user if any field contains the keywords
-		if ( self::containsKeywords( $first_name, $keywords ) ||
-				self::containsKeywords( $last_name, $keywords ) ||
-				self::containsKeywords( $email, $keywords ) ) {
+		if ( Nova_Sheets_Utils::containsKeywords( $first_name, $keywords ) ||
+				Nova_Sheets_Utils::containsKeywords( $last_name, $keywords ) ||
+				Nova_Sheets_Utils::containsKeywords( $email, $keywords ) ) {
 			return;
 		}
 
@@ -203,11 +213,11 @@ class Nova_Sheets_Client {
 			'State'             => $state,
 			'Country'           => $country,
 			'Registration Date' => ( new DateTime( $user->user_registered ) )->format( 'Y-m-d' ),
-			'# of Orders'       => self::user_orders_count( $user_id ),
-			'# of Quotes'       => self::user_quotes_count( $user_id ),
+			'# of Orders'       => Nova_Sheets_Utils::user_orders_count( $user_id ),
+			'# of Quotes'       => Nova_Sheets_Utils::user_quotes_count( $user_id ),
 			'Business Type'     => get_field( 'business_type', 'user_' . $user->ID ),
-			'Quotes Submitted (last 4 weeks)' => self::is_user_active( $user_id ),
-			'Orders Submitted (last 4 weeks)' => self::get_orders_before( $user_id ),
+			'Quotes Submitted (last 4 weeks)' => Nova_Sheets_Utils::is_user_active( $user_id ),
+			'Orders Submitted (last 4 weeks)' => Nova_Sheets_Utils::get_orders_before( $user_id ),
 			'Company Emails'    => get_user_meta($user_id,'employee_emails',true),
 		);
 
@@ -284,75 +294,5 @@ class Nova_Sheets_Client {
 		} catch ( Exception $e ) {
 			echo 'Error while formatting the header: ' . $e->getMessage() . "<br>\n";
 		}
-	}
-
-	public static function containsKeywords( $string, $keywords ) {
-		$lowerString = strtolower( $string ); // Convert string to lower case once
-		foreach ( $keywords as $keyword ) {
-			if ( strpos( $lowerString, $keyword ) !== false ) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	public static function user_orders_count( $user_id ) {
-		if ( ! class_exists( 'WC_Order_Query' ) ) {
-			return 'WooCommerce is not active';
-		}
-
-		$result = get_user_meta( $user_id, 'nova_user_orders', true );
-		return is_array( $result ) ? count( $result) : $result;
-	}
-	
-	public static function is_user_active( $user_id ) {
-		$four_weeks_ago = date( 'Y-m-d H:i:s', strtotime( '-4 weeks' ) );
-
-		$quotes = new WP_Query( array(
-			'post_type' => 'nova_quote',
-			'posts_per_page' => 1,
-			'post_status' => array('publish', 'checked_out'),
-			'author' => $user_id,
-			'date_query' => array(
-				'after' => $four_weeks_ago
-			)
-		) );
-
-		return $quotes->found_posts;
-	}
-
-	public static function user_quotes_count( $user_id ) {
-		$user_quotes = get_user_meta( $user_id, 'nova_user_quotes', true );
-		$quotes = is_array($user_quotes) ? count( $user_quotes ) : $user_quotes;
-		return $quotes; // Return the count of matching posts
-	}
-	
-	public static function get_orders_before( $user_id ) {
-		if ( ! class_exists( 'WC_Order_Query' ) ) {
-			return 'WooCommerce is not active';
-		}
-
-		$four_weeks_ago = date( 'Y-m-d H:i:s', strtotime( '-4 weeks' ) );
-
-		// Initialize the query object
-		$order_query = new WC_Order_Query( array(
-			'customer_id'  => $user_id,
-			'limit'        => -1, // Retrieve all matching orders
-			'date_created' => '>' . $four_weeks_ago, // Only fetch orders created in the last 4 weeks
-		) );
-
-		// Fetch all orders
-		$orders = $order_query->get_orders();
-		$result = [];
-
-		foreach ( $orders as $order ) {
-			$hide = $order->get_meta( '_hide_order' );
-			if ( $hide ) {
-				continue; // Exclude hidden orders
-			}
-			$result[] = $order;
-		}
-
-		return count( $result );
 	}
 }

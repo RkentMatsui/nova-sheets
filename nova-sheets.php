@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/classes/class-nova-sheets-utils.php';
 require_once __DIR__ . '/classes/class-nova-google-sheets-integration.php';
 require_once __DIR__ . '/classes/class-nova-partner-data.php';
 require_once __DIR__ . '/classes/class-nova-sheets-client.php';
