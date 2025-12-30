@@ -1,4 +1,13 @@
 <?php
+/**
+ * Nova Google Sheets Integration
+ *
+ * Main plugin class that handles the WordPress admin interface,
+ * plugin settings registration, and coordinates with the Sheets client.
+ *
+ * @package Nova_Sheets
+ * @since   1.0.0
+ */
 class Nova_Google_Sheets_Integration {
 	private $client;
 
@@ -99,7 +108,7 @@ class Nova_Google_Sheets_Integration {
         $option = get_option( 'nova_google_sheets_spreadsheet_id' );
 		// Update other settings if form is submitted
 		if ( isset( $_POST['update_sheet'] ) ) {
-			$updated = $this->client->updateSheet();
+			$updated = $this->client->updateSheet('main');
 			if ( $updated ) {
 				echo '<div class="updated"><p>Sheet updated.</p></div>';
 			}

@@ -1,4 +1,14 @@
 <?php
+/**
+ * Nova Partner Data
+ *
+ * Handles retrieval and formatting of partner data for Google Sheets sync.
+ * Provides methods to fetch all partners and their company emails with
+ * filtering capabilities.
+ *
+ * @package Nova_Sheets
+ * @since   1.0.0
+ */
 class Nova_Partner_Data {
 	public static function get_all_partners() {
 		$args    = array(
@@ -18,9 +28,9 @@ class Nova_Partner_Data {
 			$email      = $user->user_email;
 
 			// Skip user if any field contains the keywords
-			if ( self::containsKeywords( $first_name, $keywords ) ||
-				self::containsKeywords( $last_name, $keywords ) ||
-				self::containsKeywords( $email, $keywords ) ) {
+			if ( Nova_Sheets_Utils::containsKeywords( $first_name, $keywords ) ||
+				Nova_Sheets_Utils::containsKeywords( $last_name, $keywords ) ||
+				Nova_Sheets_Utils::containsKeywords( $email, $keywords ) ) {
 				continue;
 			}
 
@@ -49,11 +59,11 @@ class Nova_Partner_Data {
 				'State'             => $state,
 				'Country'           => $country,
 				'Registration Date' =>  (new DateTime($user->user_registered))->format('Y-m-d'),
-				'# of Orders'       => self::user_orders_count( $user->ID ),
-				'# of Quotes'       => self::user_quotes_count( $user->ID ),
+				'# of Orders'       => Nova_Sheets_Utils::user_orders_count( $user->ID ),
+				'# of Quotes'       => Nova_Sheets_Utils::user_quotes_count( $user->ID ),
 				'Business Type'     => get_field( 'business_type', 'user_' . $user->ID ),
-				'Quotes Submitted (last 4 weeks)' => self::is_user_active( $user->ID ),
-				'Orders Submitted (last 4 weeks)' => self::get_orders_before( $user->ID ),
+				'Quotes Submitted (last 4 weeks)' => Nova_Sheets_Utils::is_user_active( $user->ID ),
+				'Orders Submitted (last 4 weeks)' => Nova_Sheets_Utils::get_orders_before( $user->ID ),
                 'Company Emails' => get_user_meta( $user->ID ,'employee_emails',true),
 			);
 		}
@@ -78,9 +88,9 @@ class Nova_Partner_Data {
             $email      = $user->user_email;
 
             // Skip user if any field contains the keywords
-            if ( self::containsKeywords( $first_name, $keywords ) ||
-                self::containsKeywords( $last_name, $keywords ) ||
-                self::containsKeywords( $email, $keywords ) ) {
+            if ( Nova_Sheets_Utils::containsKeywords( $first_name, $keywords ) ||
+                Nova_Sheets_Utils::containsKeywords( $last_name, $keywords ) ||
+                Nova_Sheets_Utils::containsKeywords( $email, $keywords ) ) {
                 continue;
             }
 
@@ -145,75 +155,4 @@ class Nova_Partner_Data {
 
         return $results;
     }
-
-	public static function user_orders_count( $user_id ) {
-		if ( ! class_exists( 'WC_Order_Query' ) ) {
-			return 'WooCommerce is not active';
-		}
-
-		$result = get_user_meta( $user_id, 'nova_user_orders', true );
-		return is_array( $result ) ? count( $result ) : $result;
-	}
-	
-	public static function get_orders_before( $user_id ) {
-		if ( ! class_exists( 'WC_Order_Query' ) ) {
-			return 'WooCommerce is not active';
-		}
-
-		$four_weeks_ago = date( 'Y-m-d H:i:s', strtotime( '-4 weeks' ) );
-
-		// Initialize the query object
-		$order_query = new WC_Order_Query( array(
-			'customer_id'  => $user_id,
-			'limit'        => -1, // Retrieve all matching orders
-			'date_created' => '>' . $four_weeks_ago, // Only fetch orders created in the last 4 weeks
-		) );
-
-		// Fetch all orders
-		$orders = $order_query->get_orders();
-		$result = [];
-
-		foreach ( $orders as $order ) {
-			$hide = $order->get_meta( '_hide_order' );
-			if ( $hide ) {
-				continue; // Exclude hidden orders
-			}
-			$result[] = $order;
-		}
-
-		return count( $result );
-	}
-	
-	public static function is_user_active( $user_id ) {
-		$four_weeks_ago = date( 'Y-m-d H:i:s', strtotime( '-4 weeks' ) );
-
-		$quotes = new WP_Query( array(
-			'post_type' => 'nova_quote',
-			'post_status' => array('publish', 'checked_out'),
-			'posts_per_page' => 1,
-			'author' => $user_id,
-			'date_query' => array(
-				'after' => $four_weeks_ago
-			)
-		) );
-
-		return $quotes->found_posts;
-	}
-
-	public static function user_quotes_count( $user_id ) {
-		$nova_user_quotes = get_user_meta( $user_id, 'nova_user_quotes', true );
-		return is_array( $nova_user_quotes ) ? count( $nova_user_quotes ) : $nova_user_quotes;
-	}
-
-
-	public static function containsKeywords( $string, $keywords ) {
-		$lowerString = strtolower( $string ); // Convert string to lower case once
-		foreach ( $keywords as $keyword ) {
-			if ( strpos( $lowerString, $keyword ) !== false ) {
-				return true;
-			}
-		}
-		return false;
-	}
-
 }
