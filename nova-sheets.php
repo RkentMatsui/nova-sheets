@@ -17,7 +17,7 @@ require_once __DIR__ . '/classes/class-nova-google-sheets-integration.php';
 require_once __DIR__ . '/classes/class-nova-partner-data.php';
 require_once __DIR__ . '/classes/class-nova-sheets-client.php';
 // require_once get_stylesheet_directory() . '/vendor/autoload.php';
-require __DIR__ . '/ken-update-checker/plugin-update-checker.php';
+require __DIR__ . '/bonn-update-checker/plugin-update-checker.php';
 
 use Bonn\PluginUpdateChecker\v5\PucFactory;
 
