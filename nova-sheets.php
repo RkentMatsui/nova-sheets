@@ -30,3 +30,13 @@ function run_google_sheets_integration() {
 	new Nova_Google_Sheets_Integration();
 }
 add_action( 'plugins_loaded', 'run_google_sheets_integration' );
+
+if (defined('GITHUB_BRANCH') && GITHUB_BRANCH) {  
+	$nova_update_checker->setBranch( GITHUB_BRANCH );
+}else{
+	$nova_update_checker->setBranch( 'master' );
+}
+if (defined('GITHUB_TOKEN') && GITHUB_TOKEN) {   
+	// Optional: set authentication if repo is private
+	$nova_update_checker->setAuthentication(GITHUB_TOKEN);
+}
