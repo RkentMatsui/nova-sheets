@@ -1,4 +1,14 @@
 <?php
+/**
+ * Nova Sheets Client
+ *
+ * Handles Google Sheets API client initialization and sheet operations.
+ * Manages syncing partner and employee data to Google Sheets, including
+ * inserting, updating, clearing, and formatting sheet data.
+ *
+ * @package Nova_Sheets
+ * @since   1.0.0
+ */
 class Nova_Sheets_Client {
 
 	private $spreadsheetID;
@@ -7,12 +17,12 @@ class Nova_Sheets_Client {
 	public function __construct() {
 		$this->spreadsheetID = get_option( 'nova_google_sheets_spreadsheet_id' );
 		$this->employeeSpreadsheetID = get_option( 'nova_google_sheets_employee_spreadsheet_id' );
-		add_action( 'set_user_role', array( $this, 'update_row' ), 99 );
-		add_action( 'profile_update', array( $this, 'update_row' ), 99 );
+		add_action( 'set_user_role', array( $this, 'update_all_user_data' ), 99 );
+		add_action( 'profile_update', array( $this, 'update_all_user_data' ), 99 );
 		/** if woocommerce order is placed, update the row */
-		add_action( 'woocommerce_new_order', array( $this, 'updateSheet' ), 99 );
+		add_action( 'woocommerce_new_order', array( $this, 'handle_new_order' ), 99 );
 		/** if post type nova quote is created, update the row */
-		add_action( 'save_post_nova_quote', array( $this, 'updateSheet' ), 99 );
+		add_action( 'save_post_nova_quote', array( $this, 'handle_save_quote' ), 99 );
 	}
 
 	public function getClient( $credentials_path = '' ) {
@@ -50,6 +60,28 @@ class Nova_Sheets_Client {
 			return false;
 		}
 	}
+
+    public function handle_new_order( $order_id ) {
+        $order = wc_get_order( $order_id );
+        if ( $order ) {
+            $user_id = $order->get_customer_id();
+            if ( $user_id ) {
+                $this->update_all_user_data( $user_id );
+            }
+        }
+    }
+
+    public function handle_save_quote( $post_id ) {
+        $post = get_post( $post_id );
+        if ( $post && $post->post_author ) {
+            $this->update_all_user_data( $post->post_author );
+        }
+    }
+
+    public function update_all_user_data( $user_id ) {
+        $this->update_row( $user_id );
+        $this->update_employee_row( $user_id );
+    }
 
 	public function insert_row( $user_id ) {
 		try {
@@ -111,11 +143,11 @@ class Nova_Sheets_Client {
 					get_user_meta( $user_id, 'billing_state', true ) ?: 'NONE',
 					get_user_meta( $user_id, 'billing_country', true ) ?: 'NONE',
 					( new DateTime( $user->user_registered ) )->format( 'Y-m-d' ),
-					self::user_orders_count( $user_id ),
-					self::user_quotes_count( $user_id ),
+					Nova_Sheets_Utils::user_orders_count( $user_id ),
+					Nova_Sheets_Utils::user_quotes_count( $user_id ),
 					get_field( 'business_type', 'user_' . $user_id ),
-					self::is_user_active( $user_id ),
-					self::get_orders_before( $user_id ),
+					Nova_Sheets_Utils::is_user_active( $user_id ),
+					Nova_Sheets_Utils::get_orders_before( $user_id ),
                     get_user_meta($user_id,'employee_emails',true) ?: 'NONE',
 				),
 			);
@@ -138,6 +170,122 @@ class Nova_Sheets_Client {
 			return false;
 		}
 	}
+
+    public function update_employee_row( $user_id ) {
+        try {
+            $client        = $this->getClient();
+            $service       = new Google\Service\Sheets( $client );
+            $spreadsheetId = $this->employeeSpreadsheetID;
+            $range         = 'Partners (Master Copy)!A1:Z';
+
+            // Retrieve current sheet data
+            $response = $service->spreadsheets_values->get( $spreadsheetId, $range );
+            $values   = $response->getValues();
+
+            if ( empty( $values ) ) {
+                return false;
+            }
+
+            $user       = get_user_by( 'id', $user_id );
+            $user_login = $user->user_login;
+            $rowsToExclude = array();
+
+            // Find all rows with the matching user login
+            foreach ( $values as $index => $row ) {
+                if ( isset( $row[2] ) && $row[2] == $user_login ) {
+                    $rowsToExclude[] = $index;
+                }
+            }
+
+            // If rows found, delete them (from bottom to top to preserve indices)
+            if ( ! empty( $rowsToExclude ) ) {
+                $requests = array();
+                // Group contiguous rows for efficiency if possible, or just delete one by one from bottom
+                rsort($rowsToExclude);
+                foreach ($rowsToExclude as $rowIndex) {
+                    $requests[] = new Google\Service\Sheets\Request(array(
+                        'deleteDimension' => array(
+                            'range' => array(
+                                'sheetId' => 0, // Assuming first sheet
+                                'dimension' => 'ROWS',
+                                'startIndex' => $rowIndex,
+                                'endIndex' => $rowIndex + 1
+                            )
+                        )
+                    ));
+                }
+                $batchUpdateRequest = new Google\Service\Sheets\BatchUpdateSpreadsheetRequest(array(
+                    'requests' => $requests
+                ));
+                $service->spreadsheets->batchUpdate($spreadsheetId, $batchUpdateRequest);
+            }
+
+            // Prepare new employee rows
+            $results = array();
+            $first_name = $user->first_name;
+            $last_name  = $user->last_name;
+            $email      = $user->user_email;
+            $country = get_user_meta( $user->ID, 'billing_country', true ) ?: 'NONE';
+            $state = get_user_meta( $user->ID, 'billing_state', true ) ?: 'NONE';
+            
+            $employee_emails = get_user_meta( $user->ID ,'employee_emails',true);
+            $employee_emails_arr = array_map('trim', explode(',',$employee_emails ) );
+            
+            if(count($employee_emails_arr) <= 1 && empty($employee_emails_arr[0])){
+                 $results[] = array(
+                    get_field( 'business_id', 'user_' . $user->ID ),
+                    get_field( 'business_name', 'user_' . $user->ID ),
+                    $user->user_login,
+                    $first_name . ' ' . $last_name,
+                    $email,
+                    get_field( 'business_phone_number', 'user_' . $user->ID ),
+                    get_field( 'business_website', 'user_' . $user->ID ),
+                    get_user_meta( $user->ID, 'billing_address_1',  true ),
+                    get_user_meta( $user->ID, 'billing_city',  true ),
+                    get_user_meta( $user->ID, 'billing_postcode',  true ),
+                    $state,
+                    $country,
+                    (new DateTime($user->user_registered))->format('Y-m-d'),
+                    get_field( 'business_type', 'user_' . $user->ID ),
+                    '',
+                    '',
+                );
+            } else {
+                foreach ($employee_emails_arr as $employee_email) {
+                    $employee_data =  array_map('trim', explode(' ',$employee_email));
+                    $employee_email_val = $employee_data[count($employee_data) - 1];
+                    $employee_name = implode(" ",array_slice($employee_data,0,count($employee_data) - 1));
+                    $results[] = array(
+                        get_field( 'business_id', 'user_' . $user->ID ),
+                        get_field( 'business_name', 'user_' . $user->ID ),
+                        $user->user_login,
+                        $first_name . ' ' . $last_name,
+                        $email,
+                        get_field( 'business_phone_number', 'user_' . $user->ID ),
+                        get_field( 'business_website', 'user_' . $user->ID ),
+                        get_user_meta( $user->ID, 'billing_address_1',  true ),
+                        get_user_meta( $user->ID, 'billing_city',  true ),
+                        get_user_meta( $user->ID, 'billing_postcode',  true ),
+                        $state,
+                        $country,
+                        (new DateTime($user->user_registered))->format('Y-m-d'),
+                        get_field( 'business_type', 'user_' . $user->ID ),
+                        $employee_name,
+                        $employee_email_val,
+                    );
+                }
+            }
+
+            $body   = new Google\Service\Sheets\ValueRange( array( 'values' => $results ) );
+            $params = array( 'valueInputOption' => 'RAW' );
+            $service->spreadsheets_values->append( $spreadsheetId, 'Partners (Master Copy)!A1', $body, $params );
+
+            return true;
+        } catch ( Exception $e ) {
+            error_log( 'Error updating the employee row: ' . $e->getMessage() );
+            return false;
+        }
+    }
 
 
 
@@ -172,9 +320,9 @@ class Nova_Sheets_Client {
 		$keywords = array( 'test', 'demo' );
 
 			// Skip user if any field contains the keywords
-		if ( self::containsKeywords( $first_name, $keywords ) ||
-				self::containsKeywords( $last_name, $keywords ) ||
-				self::containsKeywords( $email, $keywords ) ) {
+		if ( Nova_Sheets_Utils::containsKeywords( $first_name, $keywords ) ||
+				Nova_Sheets_Utils::containsKeywords( $last_name, $keywords ) ||
+				Nova_Sheets_Utils::containsKeywords( $email, $keywords ) ) {
 			return;
 		}
 
@@ -203,11 +351,11 @@ class Nova_Sheets_Client {
 			'State'             => $state,
 			'Country'           => $country,
 			'Registration Date' => ( new DateTime( $user->user_registered ) )->format( 'Y-m-d' ),
-			'# of Orders'       => self::user_orders_count( $user_id ),
-			'# of Quotes'       => self::user_quotes_count( $user_id ),
+			'# of Orders'       => Nova_Sheets_Utils::user_orders_count( $user_id ),
+			'# of Quotes'       => Nova_Sheets_Utils::user_quotes_count( $user_id ),
 			'Business Type'     => get_field( 'business_type', 'user_' . $user->ID ),
-			'Quotes Submitted (last 4 weeks)' => self::is_user_active( $user_id ),
-			'Orders Submitted (last 4 weeks)' => self::get_orders_before( $user_id ),
+			'Quotes Submitted (last 4 weeks)' => Nova_Sheets_Utils::is_user_active( $user_id ),
+			'Orders Submitted (last 4 weeks)' => Nova_Sheets_Utils::get_orders_before( $user_id ),
 			'Company Emails'    => get_user_meta($user_id,'employee_emails',true),
 		);
 
@@ -284,75 +432,5 @@ class Nova_Sheets_Client {
 		} catch ( Exception $e ) {
 			echo 'Error while formatting the header: ' . $e->getMessage() . "<br>\n";
 		}
-	}
-
-	public static function containsKeywords( $string, $keywords ) {
-		$lowerString = strtolower( $string ); // Convert string to lower case once
-		foreach ( $keywords as $keyword ) {
-			if ( strpos( $lowerString, $keyword ) !== false ) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	public static function user_orders_count( $user_id ) {
-		if ( ! class_exists( 'WC_Order_Query' ) ) {
-			return 'WooCommerce is not active';
-		}
-
-		$result = get_user_meta( $user_id, 'nova_user_orders', true );
-		return is_array( $result ) ? count( $result) : $result;
-	}
-	
-	public static function is_user_active( $user_id ) {
-		$four_weeks_ago = date( 'Y-m-d H:i:s', strtotime( '-4 weeks' ) );
-
-		$quotes = new WP_Query( array(
-			'post_type' => 'nova_quote',
-			'posts_per_page' => 1,
-			'post_status' => array('publish', 'checked_out'),
-			'author' => $user_id,
-			'date_query' => array(
-				'after' => $four_weeks_ago
-			)
-		) );
-
-		return $quotes->found_posts;
-	}
-
-	public static function user_quotes_count( $user_id ) {
-		$user_quotes = get_user_meta( $user_id, 'nova_user_quotes', true );
-		$quotes = is_array($user_quotes) ? count( $user_quotes ) : $user_quotes;
-		return $quotes; // Return the count of matching posts
-	}
-	
-	public static function get_orders_before( $user_id ) {
-		if ( ! class_exists( 'WC_Order_Query' ) ) {
-			return 'WooCommerce is not active';
-		}
-
-		$four_weeks_ago = date( 'Y-m-d H:i:s', strtotime( '-4 weeks' ) );
-
-		// Initialize the query object
-		$order_query = new WC_Order_Query( array(
-			'customer_id'  => $user_id,
-			'limit'        => -1, // Retrieve all matching orders
-			'date_created' => '>' . $four_weeks_ago, // Only fetch orders created in the last 4 weeks
-		) );
-
-		// Fetch all orders
-		$orders = $order_query->get_orders();
-		$result = [];
-
-		foreach ( $orders as $order ) {
-			$hide = $order->get_meta( '_hide_order' );
-			if ( $hide ) {
-				continue; // Exclude hidden orders
-			}
-			$result[] = $order;
-		}
-
-		return count( $result );
 	}
 }
