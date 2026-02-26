@@ -3,7 +3,7 @@
 Plugin Name: Nova Google Sheets Integration
 Plugin URI:  http://novasignage.com
 Description: Integrates Google Sheets API to sync partners
-Version:     1.4
+Version:     1.4.1
 Author:      Bonn Joel Elimanco <bonnjoel@gmail.com>
 Author URI:  https://www.onlinejobs.ph/jobseekers/info/77592
 */
