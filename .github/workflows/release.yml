@@ -34,9 +34,20 @@ jobs:
           # Create a temporary directory to package the plugin correctly
           mkdir -p build/nova-sheets
           
-          # Copy all files except build, .github, .git, and other unnecessary files
-          # We use rsync for easy exclusion
-          rsync -rr . build/nova-sheets --exclude=build --exclude=.github --exclude=.git --exclude=.gitignore --exclude=.DS_Store --exclude=composer.json --exclude=composer.lock
+          # Copy files. -a (archive) includes recursive, links, perms, etc.
+          # We explicitly ensure vendor is included by using rsync carefully.
+          rsync -a . build/nova-sheets \
+            --exclude='build' \
+            --exclude='.github' \
+            --exclude='.git' \
+            --exclude='.gitignore' \
+            --exclude='.DS_Store' \
+            --exclude='composer.json' \
+            --exclude='composer.lock'
+          
+          # Debug: List contents of the build directory
+          echo "Contents of build/nova-sheets:"
+          ls -R build/nova-sheets | head -n 50
           
           cd build
           zip -r ../nova-sheets.zip nova-sheets
