@@ -54,6 +54,34 @@ Nova Google Sheets Integration is a WordPress plugin designed to automate the sy
     - `Nova_Partner_Data`: Handles data retrieval for partners and employees.
 - **Update Checker**: Includes an integrated update checker that pulls from the GitHub repository.
 
+## Development & Releases
+
+This plugin uses a professional build process via **GitHub Actions**. The `vendor` directory and other build artifacts are excluded from the repository to keep it clean, but they are automatically included in the distributed ZIP files.
+
+### How to Release a New Version
+
+1.  **Update the Version**: Change the `Version:` string in `nova-sheets.php`.
+2.  **Commit and Push**:
+    ```bash
+    git add nova-sheets.php
+    git commit -m "Bump version to X.X.X"
+    git push origin master
+    ```
+3.  **Create a Version Tag**: Tags must start with `v` to trigger the build process.
+    ```bash
+    git tag vX.X.X
+    git push origin vX.X.X
+    ```
+4.  **Wait for Build**: Check the **Actions** tab on GitHub. Once the build is complete, a new **GitHub Release** will be created with a `nova-sheets.zip` file attached.
+5.  **WordPress Update**: The integrated update checker will automatically detect the new release and download the pre-built ZIP (including the `vendor` folder).
+
+### Manual Installation (Development)
+
+If you are installing manually from the repository source (not from a Release ZIP), you must run composer to install dependencies:
+```bash
+composer install
+```
+
 ## Author
 
 - **Authors**: 
