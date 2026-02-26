@@ -1,0 +1,53 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mbstring, xml, zip
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-dev --optimize-autoloader
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create release zip
+        run: |
+          # Create a temporary directory to package the plugin correctly
+          mkdir -p build/nova-sheets
+          
+          # Copy all files except build, .github, .git, and other unnecessary files
+          # We use rsync for easy exclusion
+          rsync -rr . build/nova-sheets --exclude=build --exclude=.github --exclude=.git --exclude=.gitignore --exclude=.DS_Store --exclude=composer.json --exclude=composer.lock
+          
+          cd build
+          zip -r ../nova-sheets.zip nova-sheets
+          cd ..
+
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: nova-sheets.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
