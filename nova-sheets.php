@@ -3,7 +3,7 @@
 Plugin Name: Nova Google Sheets Integration
 Plugin URI:  http://novasignage.com
 Description: Integrates Google Sheets API to sync partners
-Version:     1.4.1
+Version:     1.4.2
 Author:      Bonn Joel Elimanco <bonnjoel@gmail.com>
 Author URI:  https://www.onlinejobs.ph/jobseekers/info/77592
 */
@@ -32,11 +32,14 @@ function run_google_sheets_integration() {
 }
 add_action( 'plugins_loaded', 'run_google_sheets_integration' );
 
-if (defined('GITHUB_BRANCH') && GITHUB_BRANCH) {  
-	$nova_update_checker->setBranch( GITHUB_BRANCH );
-}else{
-	$nova_update_checker->setBranch( 'master' );
-}
+// if (defined('GITHUB_BRANCH') && GITHUB_BRANCH) {  
+// 	$nova_update_checker->setBranch( GITHUB_BRANCH );
+// }else{
+// 	$nova_update_checker->setBranch( 'master' );
+// }
+
+// Use GitHub Releases instead of the raw branch code
+$nova_update_checker->getVcsApi()->enableReleaseAssets();
 if (defined('GITHUB_TOKEN') && GITHUB_TOKEN) {   
 	// Optional: set authentication if repo is private
 	$nova_update_checker->setAuthentication(GITHUB_TOKEN);
